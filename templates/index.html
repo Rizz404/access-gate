@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>access-gate</title>
+<style>
+body{font:15px system-ui;max-width:56rem;margin:2rem auto;padding:0 1rem}
+section{border:1px solid #8886;border-radius:8px;padding:1rem;margin:1rem 0}
+table{width:100%;border-collapse:collapse}td,th{text-align:left;padding:.3rem;border-bottom:1px solid #8883}
+form.inline{display:inline}input,select,button{font:inherit;padding:.3rem .5rem}
+.off{opacity:.55}.msg{color:#b00020}.muted{color:#888}
+header{display:flex;justify-content:space-between;align-items:center}
+</style></head><body>
+<header><h1>access-gate</h1>
+<form method="post" action="/logout"><input type="hidden" name="csrf" value="{{.CSRF}}"><button>Keluar</button></form></header>
+<p class="muted">IP kamu sekarang: <b>{{.MyIP}}</b></p>
+{{if .Msg}}<p class="msg">{{.Msg}}</p>{{end}}
+
+{{range .Sites}}
+<section class="{{if not .Enabled}}off{{end}}">
+<header><h2>{{.Name}}{{if not .Enabled}} (nonaktif){{end}}</h2>
+<span>
+<form class="inline" method="post" action="/site/toggle"><input type="hidden" name="csrf" value="{{$.CSRF}}"><input type="hidden" name="id" value="{{.ID}}"><input type="hidden" name="enabled" value="{{if .Enabled}}0{{else}}1{{end}}"><button>{{if .Enabled}}Nonaktifkan{{else}}Aktifkan{{end}}</button></form>
+<form class="inline" method="post" action="/site/delete" onsubmit="return confirm('Hapus situs {{.Name}} beserta semua IP-nya?')"><input type="hidden" name="csrf" value="{{$.CSRF}}"><input type="hidden" name="id" value="{{.ID}}"><button>Hapus</button></form>
+</span></header>
+<p class="muted">Situs nonaktif atau tanpa IP = semua akses ditolak. Isi header nginx <code>X-Site: {{.Name}}</code>.</p>
+<table><tr><th>IP / CIDR</th><th>Label</th><th>Kedaluwarsa</th><th></th></tr>
+{{range .Entries}}<tr><td>{{.CIDR}}</td><td>{{.Label}}</td><td>{{if .ExpiresAt}}{{.ExpiresAt.Format "2006-01-02 15:04"}}{{else}}—{{end}}</td>
+<td><form class="inline" method="post" action="/entry/delete"><input type="hidden" name="csrf" value="{{$.CSRF}}"><input type="hidden" name="id" value="{{.ID}}"><button>Hapus</button></form></td></tr>
+{{else}}<tr><td colspan="4" class="muted">Belum ada IP.</td></tr>{{end}}</table>
+<p>
+<form class="inline" method="post" action="/entry/add"><input type="hidden" name="csrf" value="{{$.CSRF}}"><input type="hidden" name="id" value="{{.ID}}">
+<input name="cidr" placeholder="1.2.3.4 atau 1.2.3.0/24" required> <input name="label" placeholder="Label">
+<select name="hours"><option value="0">Tanpa kedaluwarsa</option><option value="1">1 jam</option><option value="24">24 jam</option><option value="168">7 hari</option><option value="720">30 hari</option></select>
+<button>Tambah</button></form>
+<form class="inline" method="post" action="/entry/me"><input type="hidden" name="csrf" value="{{$.CSRF}}"><input type="hidden" name="id" value="{{.ID}}">
+<select name="hours"><option value="24">24 jam</option><option value="1">1 jam</option><option value="168">7 hari</option><option value="0">Tanpa kedaluwarsa</option></select>
+<button>Whitelist IP saya ({{$.MyIP}})</button></form>
+</p></section>
+{{else}}<p class="muted">Belum ada situs.</p>{{end}}
+
+<section><h2>Tambah situs</h2>
+<form method="post" action="/site/add"><input type="hidden" name="csrf" value="{{.CSRF}}"><input name="name" placeholder="omniroute" required pattern="[A-Za-z0-9._-]+"> <button>Tambah</button></form></section>
+
+<section><h2>Penolakan terbaru</h2>
+<table><tr><th>Waktu</th><th>Situs</th><th>IP</th></tr>
+{{range .Denied}}<tr><td>{{.TS.Format "2006-01-02 15:04:05"}}</td><td>{{.Site}}</td><td>{{.IP}}</td></tr>
+{{else}}<tr><td colspan="3" class="muted">Belum ada.</td></tr>{{end}}</table></section>
+</body></html>

@@ -1,0 +1,12 @@
+<!doctype html>
+<html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>access-gate · login</title>
+<style>body{font:16px system-ui;max-width:22rem;margin:20vh auto;padding:0 1rem}input,button{font:inherit;padding:.5rem;width:100%;box-sizing:border-box;margin:.25rem 0}.err{color:#b00020}</style>
+</head><body>
+<h1>access-gate</h1>
+{{if .Error}}<p class="err">{{.Error}}</p>{{end}}
+<form method="post" action="/login">
+<input type="password" name="password" placeholder="Password" autofocus required>
+<button>Masuk</button>
+</form>
+</body></html>
