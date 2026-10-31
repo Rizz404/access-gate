@@ -56,8 +56,8 @@ func TestProxyHandler(t *testing.T) {
 	}
 
 	before := hits
-	if w := do("198.51.100.9"); w.Code != 403 || hits != before {
-		t.Errorf("denied: code=%d upstream hit=%v", w.Code, hits != before)
+	if w := do("198.51.100.9"); w.Code != statusDrop || w.Body.Len() != 0 || hits != before {
+		t.Errorf("denied: code=%d body=%q upstream hit=%v (want bare %d)", w.Code, w.Body.String(), hits != before, statusDrop)
 	}
 
 	// site without upstream -> 502, not an open redirect/loop

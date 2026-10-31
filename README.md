@@ -47,6 +47,7 @@ cek sha256, menaruhnya di `GATE_STAGE_DIR`, lalu keluar; systemd (`deploy/access
 
 ## Perilaku & batasan
 - Fail-closed: situs tak dikenal/nonaktif, IP tak valid, atau error DB = ditolak. Jika proses gate mati, situs terlindungi ikut menolak semua.
+- Mode proxy: IP yang ditolak dijawab status 444 (tanpa body); nginx memetakan ke `return 444` sehingga koneksi ditutup tanpa respons dan tidak ada tulisan "forbidden". Mode `auth_request` tetap 403 karena nginx mewajibkannya.
 - `X-Real-IP` hanya dipercaya dari peer di `GATE_TRUSTED_PROXIES`; header Cloudflare diabaikan Go, nginx `real_ip` yang menanganinya.
 - Panel admin tidak dilindungi whitelist ini (agar tidak terkunci); lindungi dengan password kuat + bind loopback/Tailscale.
 - Sesi dan penghitung gagal login ada di memori (hilang saat restart). `/auth` membaca SQLite tiap request (tanpa cache).

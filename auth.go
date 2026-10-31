@@ -47,8 +47,13 @@ func realIP(r *http.Request, trusted []netip.Prefix) string {
 	return peer.String()
 }
 
-// allowed decides the request; on deny/error it writes the response (403/500) and returns false.
-func (a *App) allowed(w http.ResponseWriter, r *http.Request) bool {
+// statusDrop is nginx's "close the connection without a response" code. In proxy mode a denied
+// client gets no hint it was blocked: nginx maps 444 to `return 444`, and through Cloudflare the
+// visitor just sees a generic origin error (520) instead of "forbidden".
+const statusDrop = 444
+
+// allowed decides the request; on deny/error it writes the response (denyCode/500) and returns false.
+func (a *App) allowed(w http.ResponseWriter, r *http.Request, denyCode int) bool {
 	site, ip := r.Header.Get("X-Site"), realIP(r, a.Trusted)
 	ok, err := a.Store.Allowed(site, ip, a.now())
 	if err != nil {
@@ -60,14 +65,18 @@ func (a *App) allowed(w http.ResponseWriter, r *http.Request) bool {
 		if err := a.Store.LogDenied(site, ip, a.now()); err != nil {
 			log.Printf("auth: log denied: %v", err)
 		}
-		http.Error(w, "forbidden", http.StatusForbidden)
+		if denyCode == http.StatusForbidden {
+			http.Error(w, "forbidden", denyCode)
+		} else {
+			w.WriteHeader(denyCode) // no body, no hint
+		}
 	}
 	return ok
 }
 
 // authHandler is the nginx auth_request target: 204 = allow, 403 = deny, 500 = error (nginx denies).
 func (a *App) authHandler(w http.ResponseWriter, r *http.Request) {
-	if a.allowed(w, r) {
+	if a.allowed(w, r, http.StatusForbidden) {
 		w.WriteHeader(http.StatusNoContent)
 	}
 }
@@ -75,7 +84,7 @@ func (a *App) authHandler(w http.ResponseWriter, r *http.Request) {
 // proxyHandler checks the IP, then reverse-proxies to the site's upstream (for nginx builds
 // without auth_request). Streaming (SSE) is flushed immediately; WebSocket upgrades pass through.
 func (a *App) proxyHandler(w http.ResponseWriter, r *http.Request) {
-	if !a.allowed(w, r) {
+	if !a.allowed(w, r, statusDrop) {
 		return
 	}
 	up, err := a.Store.Upstream(r.Header.Get("X-Site"))
