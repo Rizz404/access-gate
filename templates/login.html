@@ -1,12 +1,20 @@
 <!doctype html>
-<html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <title>access-gate · login</title>
-<style>body{font:16px system-ui;max-width:22rem;margin:20vh auto;padding:0 1rem}input,button{font:inherit;padding:.5rem;width:100%;box-sizing:border-box;margin:.25rem 0}.err{color:#b00020}</style>
-</head><body>
-<h1>access-gate</h1>
-{{if .Error}}<p class="err">{{.Error}}</p>{{end}}
-<form method="post" action="/login">
-<input type="password" name="password" placeholder="Password" autofocus required>
-<button>Masuk</button>
-</form>
-</body></html>
+<link rel="stylesheet" href="/static/app.css">
+</head>
+<body class="min-h-screen bg-zinc-50 text-zinc-900 antialiased dark:bg-zinc-950 dark:text-zinc-100">
+<main class="mx-auto flex min-h-screen max-w-sm flex-col justify-center px-4">
+  <h1 class="mb-6 text-2xl font-semibold tracking-tight">access-gate</h1>
+  {{if .Error}}<p class="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300">{{.Error}}</p>{{end}}
+  <form method="post" action="/login" class="space-y-3">
+    <input type="password" name="password" placeholder="Password" autofocus required
+      class="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-zinc-500 focus:ring-2 focus:ring-zinc-200 dark:border-zinc-700 dark:bg-zinc-900 dark:focus:ring-zinc-800">
+    <button class="w-full rounded-lg bg-zinc-900 px-3 py-2 text-sm font-medium text-white hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300">Masuk</button>
+  </form>
+</main>
+</body>
+</html>

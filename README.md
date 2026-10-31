@@ -20,6 +20,15 @@ Admin UI: `http://127.0.0.1:9180` · endpoint nginx: `http://127.0.0.1:9181/auth
 | `GATE_TRUSTED_PROXIES` | `127.0.0.1/32,::1/128` | peer yang boleh mengirim `X-Real-IP` |
 | `GATE_COOKIE_SECURE` | kosong | `1` jika UI dilayani lewat HTTPS |
 
+## UI (htmx + Tailwind)
+`static/htmx.min.js` (htmx 2.0.11) dan `static/app.css` (hasil build Tailwind) ikut di-embed ke binary, tanpa CDN.
+Ubah tampilan di `templates/*.html`, lalu build ulang CSS (Tailwind v4, butuh Node sementara):
+```
+mkdir -p /tmp/tw && cd /tmp/tw && npm i tailwindcss @tailwindcss/cli
+printf '@import "tailwindcss";\n@source "%s/templates";\n' "$OLDPWD" > input.css
+npx @tailwindcss/cli -i input.css -o "$OLDPWD/static/app.css" --minify
+```
+
 ## Pasang di nginx
 Lihat `deploy/nginx-snippet.conf`. Header `X-Site` = nama situs yang dibuat di UI.
 

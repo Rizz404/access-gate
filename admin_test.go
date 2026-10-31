@@ -125,3 +125,18 @@ func TestBadCIDRRejected(t *testing.T) {
 		t.Errorf("expected error message redirect, got %q", w.Header().Get("Location"))
 	}
 }
+
+func TestStaticAndDeniedFragment(t *testing.T) {
+	a, h := newTestAdmin(t)
+	if w := do(h, "GET", "/static/htmx.min.js", nil, nil, ""); w.Code != 200 || w.Body.Len() < 1000 {
+		t.Errorf("htmx asset: %d len=%d", w.Code, w.Body.Len())
+	}
+	if w := do(h, "GET", "/denied", nil, nil, ""); w.Code != http.StatusSeeOther {
+		t.Errorf("denied fragment must require login: %d", w.Code)
+	}
+	c, _ := login(t, a, h)
+	a.Store.LogDenied("x", "9.9.9.9", a.now())
+	if w := do(h, "GET", "/denied", nil, c, ""); w.Code != 200 || !strings.Contains(w.Body.String(), "9.9.9.9") || strings.Contains(w.Body.String(), "<html") {
+		t.Errorf("denied fragment: %d %q", w.Code, w.Body.String())
+	}
+}

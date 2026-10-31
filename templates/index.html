@@ -1,47 +1,94 @@
+{{define "denied"}}
+<section id="denied" hx-get="/denied" hx-trigger="every 10s" hx-swap="outerHTML"
+  class="rounded-xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
+  <h2 class="mb-3 text-base font-semibold">Penolakan terbaru</h2>
+  <table class="w-full text-sm">
+    <thead class="text-left text-xs uppercase tracking-wide text-zinc-500"><tr><th class="py-1.5 font-medium">Waktu</th><th class="py-1.5 font-medium">Situs</th><th class="py-1.5 font-medium">IP</th></tr></thead>
+    <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800">
+    {{range .Denied}}<tr><td class="py-1.5 tabular-nums text-zinc-500">{{.TS.Format "2006-01-02 15:04:05"}}</td><td class="py-1.5">{{.Site}}</td><td class="py-1.5 font-mono text-xs">{{.IP}}</td></tr>
+    {{else}}<tr><td colspan="3" class="py-3 text-zinc-500">Belum ada.</td></tr>{{end}}
+    </tbody>
+  </table>
+</section>
+{{end}}
 <!doctype html>
-<html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <title>access-gate</title>
-<style>
-body{font:15px system-ui;max-width:56rem;margin:2rem auto;padding:0 1rem}
-section{border:1px solid #8886;border-radius:8px;padding:1rem;margin:1rem 0}
-table{width:100%;border-collapse:collapse}td,th{text-align:left;padding:.3rem;border-bottom:1px solid #8883}
-form.inline{display:inline}input,select,button{font:inherit;padding:.3rem .5rem}
-.off{opacity:.55}.msg{color:#b00020}.muted{color:#888}
-header{display:flex;justify-content:space-between;align-items:center}
-</style></head><body>
-<header><h1>access-gate</h1>
-<form method="post" action="/logout"><input type="hidden" name="csrf" value="{{.CSRF}}"><button>Keluar</button></form></header>
-<p class="muted">IP kamu sekarang: <b>{{.MyIP}}</b></p>
-{{if .Msg}}<p class="msg">{{.Msg}}</p>{{end}}
+<link rel="stylesheet" href="/static/app.css">
+<script src="/static/htmx.min.js" defer></script>
+</head>
+<body hx-boost="true" class="min-h-screen bg-zinc-50 text-zinc-900 antialiased dark:bg-zinc-950 dark:text-zinc-100">
+<main class="mx-auto max-w-3xl space-y-4 px-4 py-8">
 
-{{range .Sites}}
-<section class="{{if not .Enabled}}off{{end}}">
-<header><h2>{{.Name}}{{if not .Enabled}} (nonaktif){{end}}</h2>
-<span>
-<form class="inline" method="post" action="/site/toggle"><input type="hidden" name="csrf" value="{{$.CSRF}}"><input type="hidden" name="id" value="{{.ID}}"><input type="hidden" name="enabled" value="{{if .Enabled}}0{{else}}1{{end}}"><button>{{if .Enabled}}Nonaktifkan{{else}}Aktifkan{{end}}</button></form>
-<form class="inline" method="post" action="/site/delete" onsubmit="return confirm('Hapus situs {{.Name}} beserta semua IP-nya?')"><input type="hidden" name="csrf" value="{{$.CSRF}}"><input type="hidden" name="id" value="{{.ID}}"><button>Hapus</button></form>
-</span></header>
-<p class="muted">Situs nonaktif atau tanpa IP = semua akses ditolak. Isi header nginx <code>X-Site: {{.Name}}</code>.{{if .Upstream}} Proxy ke <code>{{.Upstream}}</code>.{{end}}</p>
-<table><tr><th>IP / CIDR</th><th>Label</th><th>Kedaluwarsa</th><th></th></tr>
-{{range .Entries}}<tr><td>{{.CIDR}}</td><td>{{.Label}}</td><td>{{if .ExpiresAt}}{{.ExpiresAt.Format "2006-01-02 15:04"}}{{else}}—{{end}}</td>
-<td><form class="inline" method="post" action="/entry/delete"><input type="hidden" name="csrf" value="{{$.CSRF}}"><input type="hidden" name="id" value="{{.ID}}"><button>Hapus</button></form></td></tr>
-{{else}}<tr><td colspan="4" class="muted">Belum ada IP.</td></tr>{{end}}</table>
-<p>
-<form class="inline" method="post" action="/entry/add"><input type="hidden" name="csrf" value="{{$.CSRF}}"><input type="hidden" name="id" value="{{.ID}}">
-<input name="cidr" placeholder="1.2.3.4 atau 1.2.3.0/24" required> <input name="label" placeholder="Label">
-<select name="hours"><option value="0">Tanpa kedaluwarsa</option><option value="1">1 jam</option><option value="24">24 jam</option><option value="168">7 hari</option><option value="720">30 hari</option></select>
-<button>Tambah</button></form>
-<form class="inline" method="post" action="/entry/me"><input type="hidden" name="csrf" value="{{$.CSRF}}"><input type="hidden" name="id" value="{{.ID}}">
-<select name="hours"><option value="24">24 jam</option><option value="1">1 jam</option><option value="168">7 hari</option><option value="0">Tanpa kedaluwarsa</option></select>
-<button>Whitelist IP saya ({{$.MyIP}})</button></form>
-</p></section>
-{{else}}<p class="muted">Belum ada situs.</p>{{end}}
+  <header class="flex items-center justify-between">
+    <div>
+      <h1 class="text-2xl font-semibold tracking-tight">access-gate</h1>
+      <p class="mt-1 text-sm text-zinc-500">IP kamu sekarang <span class="rounded bg-zinc-200 px-1.5 py-0.5 font-mono text-xs text-zinc-800 dark:bg-zinc-800 dark:text-zinc-200">{{.MyIP}}</span></p>
+    </div>
+    <form method="post" action="/logout" hx-boost="false"><input type="hidden" name="csrf" value="{{.CSRF}}">
+      <button class="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800">Keluar</button>
+    </form>
+  </header>
 
-<section><h2>Tambah situs</h2>
-<form method="post" action="/site/add"><input type="hidden" name="csrf" value="{{.CSRF}}"><input name="name" placeholder="omniroute" required pattern="[A-Za-z0-9._-]+"> <input name="upstream" placeholder="http://127.0.0.1:20138 (mode proxy, opsional)" size="36"> <button>Tambah</button></form></section>
+  {{if .Msg}}<p class="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300">{{.Msg}}</p>{{end}}
 
-<section><h2>Penolakan terbaru</h2>
-<table><tr><th>Waktu</th><th>Situs</th><th>IP</th></tr>
-{{range .Denied}}<tr><td>{{.TS.Format "2006-01-02 15:04:05"}}</td><td>{{.Site}}</td><td>{{.IP}}</td></tr>
-{{else}}<tr><td colspan="3" class="muted">Belum ada.</td></tr>{{end}}</table></section>
-</body></html>
+  {{range .Sites}}
+  <section class="rounded-xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900 {{if not .Enabled}}opacity-60{{end}}">
+    <div class="flex flex-wrap items-center justify-between gap-2">
+      <div class="flex items-center gap-2">
+        <h2 class="text-base font-semibold">{{.Name}}</h2>
+        {{if .Enabled}}<span class="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">aktif</span>
+        {{else}}<span class="rounded-full bg-zinc-200 px-2 py-0.5 text-xs font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400">nonaktif</span>{{end}}
+      </div>
+      <div class="flex gap-2">
+        <form method="post" action="/site/toggle"><input type="hidden" name="csrf" value="{{$.CSRF}}"><input type="hidden" name="id" value="{{.ID}}"><input type="hidden" name="enabled" value="{{if .Enabled}}0{{else}}1{{end}}">
+          <button class="rounded-lg border border-zinc-300 px-2.5 py-1 text-xs hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800">{{if .Enabled}}Nonaktifkan{{else}}Aktifkan{{end}}</button></form>
+        <form method="post" action="/site/delete" hx-confirm="Hapus situs {{.Name}} beserta semua IP-nya?"><input type="hidden" name="csrf" value="{{$.CSRF}}"><input type="hidden" name="id" value="{{.ID}}">
+          <button class="rounded-lg border border-red-300 px-2.5 py-1 text-xs text-red-700 hover:bg-red-50 dark:border-red-900 dark:text-red-400 dark:hover:bg-red-950">Hapus</button></form>
+      </div>
+    </div>
+    <p class="mt-2 text-xs text-zinc-500">Situs nonaktif atau tanpa IP = semua akses ditolak. Header nginx <code class="font-mono">X-Site: {{.Name}}</code>{{if .Upstream}} · proxy ke <code class="font-mono">{{.Upstream}}</code>{{end}}</p>
+
+    <table class="mt-4 w-full text-sm">
+      <thead class="text-left text-xs uppercase tracking-wide text-zinc-500"><tr><th class="py-1.5 font-medium">IP / CIDR</th><th class="py-1.5 font-medium">Label</th><th class="py-1.5 font-medium">Kedaluwarsa</th><th></th></tr></thead>
+      <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800">
+      {{range .Entries}}<tr>
+        <td class="py-1.5 font-mono text-xs">{{.CIDR}}</td><td class="py-1.5">{{.Label}}</td>
+        <td class="py-1.5 tabular-nums text-zinc-500">{{if .ExpiresAt}}{{.ExpiresAt.Format "2006-01-02 15:04"}}{{else}}—{{end}}</td>
+        <td class="py-1.5 text-right"><form method="post" action="/entry/delete"><input type="hidden" name="csrf" value="{{$.CSRF}}"><input type="hidden" name="id" value="{{.ID}}">
+          <button class="rounded px-2 py-0.5 text-xs text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950">Hapus</button></form></td>
+      </tr>{{else}}<tr><td colspan="4" class="py-3 text-zinc-500">Belum ada IP.</td></tr>{{end}}
+      </tbody>
+    </table>
+
+    <div class="mt-4 space-y-3 border-t border-zinc-100 pt-4 dark:border-zinc-800">
+      <form method="post" action="/entry/add" class="flex flex-wrap gap-2"><input type="hidden" name="csrf" value="{{$.CSRF}}"><input type="hidden" name="id" value="{{.ID}}">
+        <input name="cidr" placeholder="1.2.3.4 atau 1.2.3.0/24" required class="min-w-0 flex-1 rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-sm outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-900">
+        <input name="label" placeholder="Label" class="w-32 rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-sm outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-900">
+        <select name="hours" class="rounded-lg border border-zinc-300 bg-white px-2 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-900"><option value="0">Tanpa kedaluwarsa</option><option value="1">1 jam</option><option value="24">24 jam</option><option value="168">7 hari</option><option value="720">30 hari</option></select>
+        <button class="rounded-lg bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300">Tambah</button>
+      </form>
+      <form method="post" action="/entry/me" class="flex flex-wrap items-center gap-2"><input type="hidden" name="csrf" value="{{$.CSRF}}"><input type="hidden" name="id" value="{{.ID}}">
+        <select name="hours" class="rounded-lg border border-zinc-300 bg-white px-2 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-900"><option value="24">24 jam</option><option value="1">1 jam</option><option value="168">7 hari</option><option value="0">Tanpa kedaluwarsa</option></select>
+        <button class="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800">Whitelist IP saya <span class="font-mono text-xs text-zinc-500">{{$.MyIP}}</span></button>
+      </form>
+    </div>
+  </section>
+  {{else}}<p class="text-sm text-zinc-500">Belum ada situs.</p>{{end}}
+
+  <section class="rounded-xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
+    <h2 class="mb-3 text-base font-semibold">Tambah situs</h2>
+    <form method="post" action="/site/add" class="flex flex-wrap gap-2"><input type="hidden" name="csrf" value="{{.CSRF}}">
+      <input name="name" placeholder="omniroute" required pattern="[A-Za-z0-9._-]+" class="w-40 rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-sm outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-900">
+      <input name="upstream" placeholder="http://127.0.0.1:20138 (mode proxy, opsional)" class="min-w-0 flex-1 rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-sm outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-900">
+      <button class="rounded-lg bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300">Tambah</button>
+    </form>
+  </section>
+
+  {{template "denied" .}}
+</main>
+</body>
+</html>

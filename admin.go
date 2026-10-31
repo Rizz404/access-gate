@@ -15,7 +15,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-//go:embed templates/*.html
+//go:embed templates/*.html static/*
 var tplFS embed.FS
 
 var tpl = template.Must(template.ParseFS(tplFS, "templates/*.html"))
@@ -63,10 +63,12 @@ func randHex(n int) string {
 
 func (a *Admin) Routes() http.Handler {
 	m := http.NewServeMux()
+	m.Handle("GET /static/", http.FileServerFS(tplFS))
 	m.HandleFunc("GET /login", a.loginPage)
 	m.HandleFunc("POST /login", a.loginPost)
 	m.HandleFunc("POST /logout", a.authed(a.logout))
 	m.HandleFunc("GET /{$}", a.authed(a.dashboard))
+	m.HandleFunc("GET /denied", a.authed(a.deniedFragment))
 	m.HandleFunc("POST /site/add", a.authed(a.siteAdd))
 	m.HandleFunc("POST /site/delete", a.authed(a.siteDelete))
 	m.HandleFunc("POST /site/toggle", a.authed(a.siteToggle))
@@ -186,6 +188,16 @@ func (a *Admin) dashboard(w http.ResponseWriter, r *http.Request, s session) {
 	tpl.ExecuteTemplate(w, "index.html", map[string]any{
 		"CSRF": s.csrf, "Sites": views, "Denied": denied, "MyIP": realIP(r, a.Trusted), "Msg": r.URL.Query().Get("msg"),
 	})
+}
+
+// deniedFragment is polled by htmx to refresh the denied-requests table in place.
+func (a *Admin) deniedFragment(w http.ResponseWriter, r *http.Request, _ session) {
+	denied, err := a.Store.RecentDenied(50)
+	if err != nil {
+		a.fail(w, err)
+		return
+	}
+	tpl.ExecuteTemplate(w, "denied", map[string]any{"Denied": denied})
 }
 
 func (a *Admin) fail(w http.ResponseWriter, err error) {
