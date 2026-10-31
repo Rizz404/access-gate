@@ -19,6 +19,9 @@ Admin UI: `http://127.0.0.1:9180` · endpoint nginx: `http://127.0.0.1:9181/auth
 | `GATE_ADDR_AUTH` | `127.0.0.1:9181` | alamat `/auth` (jaga tetap loopback) |
 | `GATE_TRUSTED_PROXIES` | `127.0.0.1/32,::1/128` | peer yang boleh mengirim `X-Real-IP` |
 | `GATE_COOKIE_SECURE` | kosong | `1` jika UI dilayani lewat HTTPS |
+| `GATE_WEBHOOK_SECRET` | kosong | secret webhook GitHub; kosong = auto-update mati |
+| `GATE_UPDATE_REPO` | (wajib jika webhook aktif) | `owner/nama` repo sumber binary |
+| `GATE_STAGE_DIR` | folder `GATE_DB` | tempat binary baru disiapkan |
 
 ## UI (htmx + Tailwind)
 `static/htmx.min.js` (htmx 2.0.11) dan `static/app.css` (hasil build Tailwind) ikut di-embed ke binary, tanpa CDN.
@@ -31,6 +34,14 @@ npx @tailwindcss/cli -i input.css -o "$OLDPWD/static/app.css" --minify
 
 ## Pasang di nginx
 Lihat `deploy/nginx-snippet.conf`. Header `X-Site` = nama situs yang dibuat di UI.
+
+## Auto-update dari GitHub
+Push ke `main` -> GitHub Actions (`.github/workflows/build.yml`) test + build -> binary diunggah ke release `latest`
+-> webhook `workflow_run` memanggil `POST /hooks/github` -> server mengunduh binary dari URL release yang tetap,
+cek sha256, menaruhnya di `GATE_STAGE_DIR`, lalu keluar; systemd (`deploy/access-gate.service`) memasang dan menjalankan binary baru.
+- Webhook: payload `application/json`, event **Workflow runs**, secret = `GATE_WEBHOOK_SECRET` (HMAC-SHA256 diverifikasi).
+- Hanya event `completed` + `success` di branch `main` dari `GATE_UPDATE_REPO` yang diproses; binary identik dilewati.
+- sha256 berasal dari release yang sama, jadi melindungi dari file rusak, bukan dari repo yang dibobol.
 
 ## Perilaku & batasan
 - Fail-closed: situs tak dikenal/nonaktif, IP tak valid, atau error DB = ditolak. Jika proses gate mati, situs terlindungi ikut menolak semua.

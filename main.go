@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/netip"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -50,6 +51,17 @@ func main() {
 	}
 	app := &App{Store: store, Trusted: trusted}
 	admin := NewAdmin(app, []byte(hash), env("GATE_COOKIE_SECURE", "") == "1")
+	if secret := os.Getenv("GATE_WEBHOOK_SECRET"); secret != "" {
+		repo := os.Getenv("GATE_UPDATE_REPO")
+		if repo == "" {
+			log.Fatal("GATE_UPDATE_REPO (owner/name) wajib jika GATE_WEBHOOK_SECRET diisi")
+		}
+		exe, _ := os.Executable()
+		up := &Updater{Secret: []byte(secret), Repo: repo, Exe: exe, Fetch: httpFetch, Retry: 15 * time.Second,
+			Dir: env("GATE_STAGE_DIR", filepath.Dir(env("GATE_DB", "access-gate.db"))), Exit: func() { os.Exit(0) }}
+		admin.Hook = http.HandlerFunc(up.Handler)
+		log.Printf("webhook update enabled for %s", repo)
+	}
 
 	// /auth listens on its own address (loopback by default) so only the local nginx can reach it.
 	authMux := http.NewServeMux()

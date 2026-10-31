@@ -42,7 +42,8 @@ type failInfo struct {
 type Admin struct {
 	*App
 	Hash   []byte
-	Secure bool // set Secure flag on cookie (use when served over HTTPS)
+	Secure bool         // set Secure flag on cookie (use when served over HTTPS)
+	Hook   http.Handler // optional GitHub webhook, authenticated by HMAC instead of session
 
 	mu       sync.Mutex
 	sessions map[string]session
@@ -66,6 +67,9 @@ func (a *Admin) Routes() http.Handler {
 	m.Handle("GET /static/", http.FileServerFS(tplFS))
 	m.HandleFunc("GET /login", a.loginPage)
 	m.HandleFunc("POST /login", a.loginPost)
+	if a.Hook != nil {
+		m.Handle("POST /hooks/github", a.Hook)
+	}
 	m.HandleFunc("POST /logout", a.authed(a.logout))
 	m.HandleFunc("GET /{$}", a.authed(a.dashboard))
 	m.HandleFunc("GET /denied", a.authed(a.deniedFragment))

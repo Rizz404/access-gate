@@ -1,0 +1,22 @@
+[Unit]
+Description=access-gate IP whitelist manager
+After=network.target
+
+[Service]
+User=accessgate
+Group=accessgate
+EnvironmentFile=/etc/access-gate.env
+# Install a binary staged by the webhook updater (runs as root via "+"), then start it as accessgate.
+ExecStartPre=+/bin/sh -c 'if [ -f /var/lib/access-gate/access-gate.new ]; then install -m 0755 /var/lib/access-gate/access-gate.new /usr/local/bin/access-gate && rm -f /var/lib/access-gate/access-gate.new; fi'
+ExecStart=/usr/local/bin/access-gate
+# The updater exits 0 after staging; Restart=always makes systemd swap in the new binary.
+Restart=always
+RestartSec=1
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/var/lib/access-gate
+
+[Install]
+WantedBy=multi-user.target
