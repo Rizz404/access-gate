@@ -3,6 +3,8 @@ package main
 import (
 	"database/sql"
 	"errors"
+	"net/url"
+	"strings"
 	"time"
 
 	_ "modernc.org/sqlite"
@@ -12,7 +14,8 @@ const schema = `
 CREATE TABLE IF NOT EXISTS sites (
 	id      INTEGER PRIMARY KEY,
 	name    TEXT NOT NULL UNIQUE,
-	enabled INTEGER NOT NULL DEFAULT 1
+	enabled INTEGER NOT NULL DEFAULT 1,
+	upstream TEXT NOT NULL DEFAULT ''
 );
 CREATE TABLE IF NOT EXISTS entries (
 	id         INTEGER PRIMARY KEY,
@@ -31,9 +34,10 @@ CREATE TABLE IF NOT EXISTS denied (
 );`
 
 type Site struct {
-	ID      int64
-	Name    string
-	Enabled bool
+	ID       int64
+	Name     string
+	Enabled  bool
+	Upstream string // proxy mode target (http://host:port); empty = /auth mode only
 }
 
 type Entry struct {
@@ -61,17 +65,40 @@ func OpenStore(path string) (*Store, error) {
 		db.Close()
 		return nil, err
 	}
+	// migrate DBs created before proxy mode existed; "duplicate column" means already migrated.
+	if _, err := db.Exec(`ALTER TABLE sites ADD COLUMN upstream TEXT NOT NULL DEFAULT ''`); err != nil &&
+		!strings.Contains(err.Error(), "duplicate column") {
+		db.Close()
+		return nil, err
+	}
 	return &Store{db: db}, nil
 }
 
 func (s *Store) Close() error { return s.db.Close() }
 
-func (s *Store) AddSite(name string) error {
+// AddSite creates a site; upstream is optional and only needed for proxy mode.
+func (s *Store) AddSite(name, upstream string) error {
 	if name == "" {
 		return errors.New("nama situs kosong")
 	}
-	_, err := s.db.Exec(`INSERT INTO sites(name) VALUES(?)`, name)
+	if upstream != "" {
+		u, err := url.Parse(upstream)
+		if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+			return errors.New("upstream harus berupa URL http(s)://host[:port]")
+		}
+	}
+	_, err := s.db.Exec(`INSERT INTO sites(name, upstream) VALUES(?,?)`, name, upstream)
 	return err
+}
+
+// Upstream returns the proxy target of an enabled site ("" if unknown, disabled, or not set).
+func (s *Store) Upstream(site string) (string, error) {
+	var u string
+	err := s.db.QueryRow(`SELECT upstream FROM sites WHERE name=? AND enabled=1`, site).Scan(&u)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", nil
+	}
+	return u, err
 }
 
 func (s *Store) DeleteSite(id int64) error {
@@ -85,7 +112,7 @@ func (s *Store) SetSiteEnabled(id int64, enabled bool) error {
 }
 
 func (s *Store) ListSites() ([]Site, error) {
-	rows, err := s.db.Query(`SELECT id, name, enabled FROM sites ORDER BY name`)
+	rows, err := s.db.Query(`SELECT id, name, enabled, upstream FROM sites ORDER BY name`)
 	if err != nil {
 		return nil, err
 	}
@@ -93,7 +120,7 @@ func (s *Store) ListSites() ([]Site, error) {
 	var out []Site
 	for rows.Next() {
 		var x Site
-		if err := rows.Scan(&x.ID, &x.Name, &x.Enabled); err != nil {
+		if err := rows.Scan(&x.ID, &x.Name, &x.Enabled, &x.Upstream); err != nil {
 			return nil, err
 		}
 		out = append(out, x)

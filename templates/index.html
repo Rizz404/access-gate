@@ -21,7 +21,7 @@ header{display:flex;justify-content:space-between;align-items:center}
 <form class="inline" method="post" action="/site/toggle"><input type="hidden" name="csrf" value="{{$.CSRF}}"><input type="hidden" name="id" value="{{.ID}}"><input type="hidden" name="enabled" value="{{if .Enabled}}0{{else}}1{{end}}"><button>{{if .Enabled}}Nonaktifkan{{else}}Aktifkan{{end}}</button></form>
 <form class="inline" method="post" action="/site/delete" onsubmit="return confirm('Hapus situs {{.Name}} beserta semua IP-nya?')"><input type="hidden" name="csrf" value="{{$.CSRF}}"><input type="hidden" name="id" value="{{.ID}}"><button>Hapus</button></form>
 </span></header>
-<p class="muted">Situs nonaktif atau tanpa IP = semua akses ditolak. Isi header nginx <code>X-Site: {{.Name}}</code>.</p>
+<p class="muted">Situs nonaktif atau tanpa IP = semua akses ditolak. Isi header nginx <code>X-Site: {{.Name}}</code>.{{if .Upstream}} Proxy ke <code>{{.Upstream}}</code>.{{end}}</p>
 <table><tr><th>IP / CIDR</th><th>Label</th><th>Kedaluwarsa</th><th></th></tr>
 {{range .Entries}}<tr><td>{{.CIDR}}</td><td>{{.Label}}</td><td>{{if .ExpiresAt}}{{.ExpiresAt.Format "2006-01-02 15:04"}}{{else}}—{{end}}</td>
 <td><form class="inline" method="post" action="/entry/delete"><input type="hidden" name="csrf" value="{{$.CSRF}}"><input type="hidden" name="id" value="{{.ID}}"><button>Hapus</button></form></td></tr>
@@ -38,7 +38,7 @@ header{display:flex;justify-content:space-between;align-items:center}
 {{else}}<p class="muted">Belum ada situs.</p>{{end}}
 
 <section><h2>Tambah situs</h2>
-<form method="post" action="/site/add"><input type="hidden" name="csrf" value="{{.CSRF}}"><input name="name" placeholder="omniroute" required pattern="[A-Za-z0-9._-]+"> <button>Tambah</button></form></section>
+<form method="post" action="/site/add"><input type="hidden" name="csrf" value="{{.CSRF}}"><input name="name" placeholder="omniroute" required pattern="[A-Za-z0-9._-]+"> <input name="upstream" placeholder="http://127.0.0.1:20138 (mode proxy, opsional)" size="36"> <button>Tambah</button></form></section>
 
 <section><h2>Penolakan terbaru</h2>
 <table><tr><th>Waktu</th><th>Situs</th><th>IP</th></tr>

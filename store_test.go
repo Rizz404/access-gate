@@ -18,7 +18,7 @@ func newTestStore(t *testing.T) *Store {
 
 func siteID(t *testing.T, s *Store, name string) int64 {
 	t.Helper()
-	if err := s.AddSite(name); err != nil {
+	if err := s.AddSite(name, ""); err != nil {
 		t.Fatal(err)
 	}
 	sites, _ := s.ListSites()

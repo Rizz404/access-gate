@@ -59,7 +59,13 @@ func main() {
 		srv := &http.Server{Addr: authAddr, Handler: authMux, ReadHeaderTimeout: 5 * time.Second}
 		log.Fatal(srv.ListenAndServe())
 	}()
-	log.Printf("auth on %s, admin on %s", authAddr, adminAddr)
+	// proxy mode for nginx builds without auth_request; no write timeout so streaming responses can run long.
+	proxyAddr := env("GATE_ADDR_PROXY", "127.0.0.1:9182")
+	go func() {
+		srv := &http.Server{Addr: proxyAddr, Handler: http.HandlerFunc(app.proxyHandler), ReadHeaderTimeout: 10 * time.Second}
+		log.Fatal(srv.ListenAndServe())
+	}()
+	log.Printf("auth on %s, proxy on %s, admin on %s", authAddr, proxyAddr, adminAddr)
 	srv := &http.Server{Addr: adminAddr, Handler: admin.Routes(), ReadHeaderTimeout: 5 * time.Second}
 	log.Fatal(srv.ListenAndServe())
 }

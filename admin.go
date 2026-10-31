@@ -217,7 +217,7 @@ func (a *Admin) expiry(r *http.Request) *time.Time {
 }
 
 func (a *Admin) siteAdd(w http.ResponseWriter, r *http.Request, _ session) {
-	a.done(w, r, a.Store.AddSite(r.FormValue("name")))
+	a.done(w, r, a.Store.AddSite(r.FormValue("name"), r.FormValue("upstream")))
 }
 
 func (a *Admin) siteDelete(w http.ResponseWriter, r *http.Request, _ session) {

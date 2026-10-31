@@ -4,7 +4,9 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"net/http/httputil"
 	"net/netip"
+	"net/url"
 	"time"
 )
 
@@ -45,21 +47,59 @@ func realIP(r *http.Request, trusted []netip.Prefix) string {
 	return peer.String()
 }
 
-// authHandler is the nginx auth_request target: 204 = allow, 403 = deny, 500 = error (nginx denies).
-func (a *App) authHandler(w http.ResponseWriter, r *http.Request) {
+// allowed decides the request; on deny/error it writes the response (403/500) and returns false.
+func (a *App) allowed(w http.ResponseWriter, r *http.Request) bool {
 	site, ip := r.Header.Get("X-Site"), realIP(r, a.Trusted)
 	ok, err := a.Store.Allowed(site, ip, a.now())
 	if err != nil {
 		log.Printf("auth: store error: %v", err)
 		http.Error(w, "error", http.StatusInternalServerError)
-		return
+		return false
 	}
 	if !ok {
 		if err := a.Store.LogDenied(site, ip, a.now()); err != nil {
 			log.Printf("auth: log denied: %v", err)
 		}
 		http.Error(w, "forbidden", http.StatusForbidden)
+	}
+	return ok
+}
+
+// authHandler is the nginx auth_request target: 204 = allow, 403 = deny, 500 = error (nginx denies).
+func (a *App) authHandler(w http.ResponseWriter, r *http.Request) {
+	if a.allowed(w, r) {
+		w.WriteHeader(http.StatusNoContent)
+	}
+}
+
+// proxyHandler checks the IP, then reverse-proxies to the site's upstream (for nginx builds
+// without auth_request). Streaming (SSE) is flushed immediately; WebSocket upgrades pass through.
+func (a *App) proxyHandler(w http.ResponseWriter, r *http.Request) {
+	if !a.allowed(w, r) {
 		return
 	}
-	w.WriteHeader(http.StatusNoContent)
+	up, err := a.Store.Upstream(r.Header.Get("X-Site"))
+	target, perr := url.Parse(up)
+	if err != nil || up == "" || perr != nil {
+		http.Error(w, "no upstream", http.StatusBadGateway)
+		return
+	}
+	rp := &httputil.ReverseProxy{
+		Rewrite: func(pr *httputil.ProxyRequest) {
+			pr.SetURL(target)
+			pr.Out.Host = pr.In.Host
+			for _, h := range []string{"X-Forwarded-For", "X-Forwarded-Proto"} { // Rewrite strips these by default
+				if v := pr.In.Header[h]; v != nil {
+					pr.Out.Header[h] = v
+				}
+			}
+			pr.Out.Header.Del("X-Site")
+		},
+		FlushInterval: -1,
+		ErrorHandler: func(w http.ResponseWriter, r *http.Request, err error) {
+			log.Printf("proxy: %v", err)
+			http.Error(w, "bad gateway", http.StatusBadGateway)
+		},
+	}
+	rp.ServeHTTP(w, r)
 }
