@@ -1,5 +1,7 @@
 # access-gate
 
+Repo: https://github.com/Rizz404/access-gate
+
 Manajer whitelist IP untuk website lain. Nginx memanggil `/auth` lewat `auth_request`;
 IP yang tidak ada di daftar situs itu ditolak (403). Perubahan berlaku langsung, tanpa reload nginx.
 
